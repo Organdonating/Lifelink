@@ -1,0 +1,271 @@
+ <!DOCTYPE html>
+<html>
+<head>
+  <title>Donor Dashboard - LifeLink</title>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      padding: 20px;
+    }
+
+    h2 { color: #e53935; }
+
+    .card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+    }
+
+    button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 5px;
+      color: white;
+    }
+
+    .submit-btn { background: #e53935; }
+    .approve-btn { background: green; }
+    .reject-btn { background: red; }
+
+    button:hover { opacity: 0.9; }
+
+    .status {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: white;
+      margin-left: 5px;
+    }
+
+    .pending { background: orange; }
+    .approved { background: green; }
+    .rejected { background: red; }
+
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #333;
+      color: white;
+      padding: 12px 18px;
+      border-radius: 6px;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Donor Dashboard</h2>
+<button class="submit-btn" onclick="logout()">Logout</button>
+
+<div class="card">
+  <h3>Submit Organ Donation</h3>
+  <form id="donorForm">
+    <input type="text" id="name" placeholder="Full Name" required>
+    <input type="text" id="mobile" placeholder="Mobile Number" required>
+
+    <select id="organ" required>
+      <option value="">Select Organ</option>
+      <option>Kidney</option>
+      <option>Liver</option>
+      <option>Heart</option>
+      <option>Lungs</option>
+    </select>
+
+    <select id="bloodGroup" required>
+      <option value="">Select Blood Group</option>
+      <option>A+</option><option>A-</option>
+      <option>B+</option><option>B-</option>
+      <option>O+</option><option>O-</option>
+      <option>AB+</option><option>AB-</option>
+    </select>
+
+    <input type="text" id="city" placeholder="City" required>
+    <button type="button" class="submit-btn" onclick="submitDonor()">Submit</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>My Submissions</h3>
+  <div id="submissionList"></div>
+</div>
+
+<div class="card">
+  <h3>Incoming Requests</h3>
+  <div id="requestList"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCa-6Yj4JEklEf7Hc0qhUhFC2Qfqde8Uu0",
+  authDomain: "lifelink-organ-donation.firebaseapp.com",
+  projectId: "lifelink-organ-donation"
+};
+
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+let currentUser = null;
+
+auth.onAuthStateChanged(user => {
+  if (!user) {
+    window.location.href = "login.html";
+  } else {
+    currentUser = user;
+    loadSubmissions();
+    loadRequests();
+  }
+});
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.innerText = msg;
+  t.style.display = "block";
+  setTimeout(()=> t.style.display="none",3000);
+}
+
+function logout() {
+  auth.signOut().then(()=> window.location.href="login.html");
+}
+
+function submitDonor() {
+
+  const name = document.getElementById("name").value;
+  const mobile = document.getElementById("mobile").value;
+  const organ = document.getElementById("organ").value;
+  const bloodGroup = document.getElementById("bloodGroup").value;
+  const city = document.getElementById("city").value;
+
+  if (!name || !mobile || !organ || !bloodGroup || !city) {
+    showToast("Fill all fields");
+    return;
+  }
+
+  db.collection("donors").add({
+    uid: currentUser.uid,
+    email: currentUser.email,
+    name,
+    mobile,
+    organ,
+    bloodGroup,
+    city,
+    status: "pending",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  })
+  .then(()=>{
+    showToast("Donation Submitted");
+    document.getElementById("donorForm").reset();
+    loadSubmissions();
+  });
+}
+
+function loadSubmissions() {
+
+  const box = document.getElementById("submissionList");
+  box.innerHTML="Loading...";
+
+  db.collection("donors")
+    .where("uid","==",currentUser.uid)
+    .get()
+    .then(snapshot=>{
+      box.innerHTML="";
+      if(snapshot.empty){
+        box.innerHTML="<p>No submissions yet.</p>";
+        return;
+      }
+
+      snapshot.forEach(doc=>{
+        const d=doc.data();
+        const statusClass=d.status||"pending";
+
+        box.innerHTML+=`
+          <div>
+            <strong>${d.organ}</strong> - ${d.city}<br>
+            Blood: ${d.bloodGroup}<br>
+            <span class="status ${statusClass}">
+              ${(d.status||"pending").toUpperCase()}
+            </span>
+            <hr>
+          </div>`;
+      });
+    });
+}
+
+function loadRequests() {
+
+  const box = document.getElementById("requestList");
+  box.innerHTML="Loading...";
+
+  db.collection("requests")
+    .where("donorUid","==",currentUser.uid)
+    .get()
+    .then(snapshot=>{
+      box.innerHTML="";
+      if(snapshot.empty){
+        box.innerHTML="<p>No incoming requests.</p>";
+        return;
+      }
+
+      snapshot.forEach(doc=>{
+        const r=doc.data();
+        const statusClass=r.status||"pending";
+
+        box.innerHTML+=`
+          <div>
+            <strong>From:</strong> ${r.requesterEmail}
+            <span class="status ${statusClass}">
+              ${(r.status||"pending").toUpperCase()}
+            </span>
+            <br><br>
+            ${
+              r.status==="pending"
+              ? `
+              <button class="approve-btn" onclick="updateRequest('${doc.id}','approved')">Approve</button>
+              <button class="reject-btn" onclick="updateRequest('${doc.id}','rejected')">Reject</button>
+              `
+              : ""
+            }
+            <hr>
+          </div>`;
+      });
+    });
+}
+
+function updateRequest(requestId, newStatus){
+
+  db.collection("requests").doc(requestId).update({
+    status: newStatus
+  })
+  .then(()=>{
+    showToast("Request " + newStatus);
+    loadRequests();
+  });
+}
+
+</script>
+</body>
+</html>
+

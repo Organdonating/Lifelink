@@ -1,0 +1,181 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register | LifeLink Organ Donor Platform</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Firebase v8 CDN -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to right, #ff4d4d, #b30000);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .register-container {
+            background: white;
+            padding: 40px;
+            width: 380px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .register-container h2 {
+            margin-bottom: 20px;
+            color: #b30000;
+        }
+
+        .register-container input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .register-container button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            background: #b30000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .register-container button:hover {
+            background: #800000;
+        }
+
+        .register-container p {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .register-container a {
+            color: #b30000;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .error {
+            color: red;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .success {
+            color: green;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="register-container">
+    <h2>Create Donor Account</h2>
+
+    <input type="text" id="name" placeholder="Full Name" required>
+    <input type="email" id="email" placeholder="Email Address" required>
+    <input type="password" id="password" placeholder="Password (Min 6 characters)" required>
+
+    <button onclick="registerUser()">Register</button>
+
+    <div class="error" id="errorMsg"></div>
+    <div class="success" id="successMsg"></div>
+
+    <p>Already have an account? <a href="login.html">Login</a></p>
+</div>
+
+<script>
+
+    // 🔥 Your Firebase Configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyCa-6Yj4JEklEf7Hc0qhUhFC2Qfqde8Uu0",
+        authDomain: "lifelink-organ-donation.firebaseapp.com",
+        projectId: "lifelink-organ-donation",
+        storageBucket: "lifelink-organ-donation.firebasestorage.app",
+        messagingSenderId: "839190723638",
+        appId: "1:839190723638:web:8e1ee3f2f8f14061c6ec97",
+        measurementId: "G-2QF1S9X1FH"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    function registerUser() {
+
+        const name = document.getElementById("name").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value.trim();
+        const errorMsg = document.getElementById("errorMsg");
+        const successMsg = document.getElementById("successMsg");
+
+        errorMsg.innerText = "";
+        successMsg.innerText = "";
+
+        if (name === "" || email === "" || password === "") {
+            errorMsg.innerText = "All fields are required!";
+            return;
+        }
+
+        if (password.length < 6) {
+            errorMsg.innerText = "Password must be at least 6 characters.";
+            return;
+        }
+
+        auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+
+            const user = userCredential.user;
+
+            // Save user data in Firestore
+            db.collection("users").doc(user.uid).set({
+                name: name,
+                email: email,
+                role: "donor",
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            successMsg.innerText = "Registration successful! Redirecting to login...";
+
+            setTimeout(() => {
+                window.location.href = "login.html";
+            }, 2000);
+
+        })
+        .catch((error) => {
+            errorMsg.innerText = error.message;
+        });
+    }
+
+</script>
+
+</body>
+</html>
+

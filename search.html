@@ -1,0 +1,218 @@
+ <!DOCTYPE html>
+<html>
+<head>
+  <title>Search Results</title>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background:#f4f6f9;
+      padding:40px;
+    }
+
+    h2{
+      color:#2c3e50;
+      margin-bottom:20px;
+    }
+
+    .card {
+      background:white;
+      padding:20px;
+      border-radius:10px;
+      margin-bottom:15px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.1);
+      transition:0.3s;
+    }
+
+    .card:hover{
+      transform:translateY(-5px);
+      box-shadow:0 8px 18px rgba(0,0,0,0.15);
+    }
+
+    button {
+      padding:8px 14px;
+      background:#1e88e5;
+      color:white;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      transition:0.3s;
+    }
+
+    button:hover { 
+      background:#1565c0;
+      transform:scale(1.05);
+    }
+
+    /* ===== PREMIUM TOAST ===== */
+
+    #toastContainer{
+      position:fixed;
+      top:20px;
+      right:20px;
+      z-index:9999;
+    }
+
+    .toast{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:280px;
+      padding:14px 18px;
+      margin-bottom:15px;
+      border-radius:10px;
+      color:white;
+      font-weight:500;
+      box-shadow:0 8px 20px rgba(0,0,0,0.2);
+      animation:slideIn 0.4s ease forwards;
+    }
+
+    .toast i{
+      font-size:18px;
+    }
+
+    .toast.success{ background:linear-gradient(135deg,#43a047,#2e7d32); }
+    .toast.error{ background:linear-gradient(135deg,#e53935,#b71c1c); }
+    .toast.info{ background:linear-gradient(135deg,#1e88e5,#1565c0); }
+
+    @keyframes slideIn{
+      from{ opacity:0; transform:translateX(120%); }
+      to{ opacity:1; transform:translateX(0); }
+    }
+
+    @keyframes slideOut{
+      from{ opacity:1; transform:translateX(0); }
+      to{ opacity:0; transform:translateX(120%); }
+    }
+
+  </style>
+</head>
+
+<body>
+
+<h2>Search Results</h2>
+<div id="results"></div>
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+
+<script>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCa-6Yj4JEklEf7Hc0qhUhFC2Qfqde8Uu0",
+  authDomain: "lifelink-organ-donation.firebaseapp.com",
+  projectId: "lifelink-organ-donation"
+};
+
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+
+const db = firebase.firestore();
+const auth = firebase.auth();
+let currentUser = null;
+
+auth.onAuthStateChanged(user => currentUser = user);
+
+function showToast(message, type="info"){
+
+  const toast = document.createElement("div");
+  toast.classList.add("toast", type);
+
+  let icon = "fa-circle-info";
+  if(type==="success") icon="fa-circle-check";
+  if(type==="error") icon="fa-circle-xmark";
+
+  toast.innerHTML = `<i class="fa-solid ${icon}"></i> ${message}`;
+
+  document.getElementById("toastContainer").appendChild(toast);
+
+  setTimeout(()=>{
+      toast.style.animation="slideOut 0.4s ease forwards";
+      setTimeout(()=> toast.remove(),400);
+  },3000);
+}
+
+const params = new URLSearchParams(window.location.search);
+const organ = params.get("organ");
+
+if(organ){
+
+  showToast("Searching for " + organ + " donors...", "info");
+
+  db.collection("donors")
+    .where("organ","==",organ)
+    .where("status","==","approved")
+    .get()
+    .then(snapshot=>{
+
+      const div = document.getElementById("results");
+      div.innerHTML="";
+
+      if(snapshot.empty){
+        div.innerHTML="<p>No donors found.</p>";
+        showToast("No donors available for " + organ, "error");
+        return;
+      }
+
+      snapshot.forEach(doc=>{
+        const donor = doc.data();
+
+        div.innerHTML+=`
+          <div class="card">
+            <p><strong>Name:</strong> ${donor.name}</p>
+            <p><strong>Blood:</strong> ${donor.bloodGroup}</p>
+            <p><strong>City:</strong> ${donor.city}</p>
+            <button onclick="sendRequest('${donor.uid}','${donor.name}')">
+              Request Donor
+            </button>
+          </div>`;
+      });
+
+      showToast("Donors loaded successfully!", "success");
+
+    })
+    .catch(()=>{
+      showToast("Error loading donors", "error");
+    });
+}
+
+function sendRequest(donorUid, donorName){
+
+  if(!currentUser){
+    showToast("Please login first!", "error");
+    setTimeout(()=>{
+      window.location.href="login.html";
+    },1500);
+    return;
+  }
+
+  showToast("Sending request to " + donorName + "...", "info");
+
+  db.collection("requests").add({
+    donorUid: donorUid,
+    donorName: donorName,
+    requesterUid: currentUser.uid,
+    requesterEmail: currentUser.email,
+    status:"pending",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  })
+  .then(()=>{
+    showToast("Request sent successfully!", "success");
+  })
+  .catch(()=>{
+    showToast("Failed to send request", "error");
+  });
+}
+
+</script>
+
+</body>
+</html>
+

@@ -1,0 +1,288 @@
+ <!DOCTYPE html>
+<html>
+<head>
+    <title>LifeLink - Admin Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to right, #ff4d4d, #b30000);
+            padding: 40px;
+        }
+
+        .dashboard-container {
+            max-width: 1100px;
+            margin: auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #b30000;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: #fff5f5;
+            border-left: 6px solid #b30000;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .card p {
+            margin-bottom: 6px;
+        }
+
+        .status {
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .approved { color: green; }
+        .pending { color: orange; }
+        .rejected { color: red; }
+
+        button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-right: 10px;
+            transition: 0.3s;
+        }
+
+        .approve {
+            background: #28a745;
+            color: white;
+        }
+
+        .approve:hover {
+            background: #218838;
+        }
+
+        .reject {
+            background: #dc3545;
+            color: white;
+        }
+
+        .reject:hover {
+            background: #c82333;
+        }
+
+        .logout {
+            background: #800000;
+            color: white;
+            display: block;
+            margin: 30px auto 0 auto;
+        }
+
+        .logout:hover {
+            background: #600000;
+        }
+
+        /* ===== MODERN TOAST ===== */
+        #toastContainer{
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .toast{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 260px;
+            padding: 14px 18px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+            animation: slideIn 0.4s ease forwards;
+        }
+
+        .toast.success { background: linear-gradient(135deg,#43a047,#2e7d32); }
+        .toast.error   { background: linear-gradient(135deg,#e53935,#b71c1c); }
+        .toast.info    { background: linear-gradient(135deg,#1e88e5,#1565c0); }
+
+        @keyframes slideIn{
+            from { opacity:0; transform: translateX(120%); }
+            to   { opacity:1; transform: translateX(0); }
+        }
+
+        @keyframes slideOut{
+            from { opacity:1; transform: translateX(0); }
+            to   { opacity:0; transform: translateX(120%); }
+        }
+
+        @media(max-width: 768px) {
+            body { padding: 20px; }
+            .dashboard-container { padding: 25px; }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="dashboard-container">
+
+    <h1>Admin Dashboard - LifeLink</h1>
+
+    <div id="donorList"></div>
+
+    <button class="logout" onclick="logoutUser()">Logout</button>
+
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+<script>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCa-6Yj4JEklEf7Hc0qhUhFC2Qfqde8Uu0",
+  authDomain: "lifelink-organ-donation.firebaseapp.com",
+  projectId: "lifelink-organ-donation",
+  storageBucket: "lifelink-organ-donation.firebasestorage.app",
+  messagingSenderId: "839190723638",
+  appId: "1:839190723638:web:8e1ee3f2f8f14061c6ec97"
+};
+
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+
+// ===== TOAST FUNCTION =====
+function showToast(message, type="info") {
+
+    const toast = document.createElement("div");
+    toast.classList.add("toast", type);
+    toast.innerText = message;
+
+    document.getElementById("toastContainer").appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = "slideOut 0.4s ease forwards";
+        setTimeout(() => toast.remove(), 400);
+    }, 3000);
+}
+
+
+// 🔐 Protect Admin Route
+auth.onAuthStateChanged((user) => {
+    if (!user) {
+        window.location.href = "login.html";
+    } else {
+        checkAdminRole(user);
+    }
+});
+
+function checkAdminRole(user) {
+    db.collection("users").doc(user.uid).get()
+    .then((doc) => {
+        if (!doc.exists || doc.data().role !== "admin") {
+            showToast("Access Denied!", "error");
+            setTimeout(() => {
+                window.location.href = "index.html";
+            }, 1500);
+        }
+    });
+}
+
+
+// 🔄 Load Donors Real-Time
+db.collection("donors").onSnapshot((snapshot) => {
+
+    const donorList = document.getElementById("donorList");
+    donorList.innerHTML = "";
+
+    snapshot.forEach((doc) => {
+
+        const donor = doc.data();
+
+        let statusClass = "pending";
+        if (donor.status === "approved") statusClass = "approved";
+        if (donor.status === "rejected") statusClass = "rejected";
+
+        donorList.innerHTML += `
+            <div class="card">
+                <p><strong>Name:</strong> ${donor.name}</p>
+                <p><strong>Email:</strong> ${donor.email}</p>
+                <p><strong>Mobile:</strong> ${donor.mobile}</p>
+                <p><strong>Organ:</strong> ${donor.organ}</p>
+                <p><strong>Blood Group:</strong> ${donor.bloodGroup}</p>
+                <p><strong>City:</strong> ${donor.city}</p>
+                <p><strong>Status:</strong> 
+                    <span class="status ${statusClass}">
+                        ${donor.status.toUpperCase()}
+                    </span>
+                </p>
+
+                <br>
+
+                <button class="approve" onclick="updateStatus('${doc.id}', 'approved')">
+                    Approve
+                </button>
+
+                <button class="reject" onclick="updateStatus('${doc.id}', 'rejected')">
+                    Reject
+                </button>
+            </div>
+        `;
+    });
+});
+
+
+function updateStatus(id, newStatus) {
+    db.collection("donors").doc(id).update({
+        status: newStatus
+    }).then(() => {
+        showToast("Status updated to " + newStatus.toUpperCase(), "success");
+    }).catch((error) => {
+        showToast(error.message, "error");
+    });
+}
+
+
+function logoutUser() {
+    auth.signOut().then(() => {
+        showToast("Logged out successfully", "info");
+        setTimeout(() => {
+            window.location.href = "login.html";
+        }, 1200);
+    });
+}
+
+</script>
+
+</body>
+</html>
+

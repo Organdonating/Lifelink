@@ -1,0 +1,185 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login | LifeLink Organ Donor Platform</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Firebase v8 CDN -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(to right, #ff4d4d, #b30000);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            width: 350px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .login-container h2 {
+            margin-bottom: 20px;
+            color: #b30000;
+        }
+
+        .login-container input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .login-container button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            background: #b30000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .login-container button:hover {
+            background: #800000;
+        }
+
+        .login-container p {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .login-container a {
+            color: #b30000;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .error {
+            color: red;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="login-container">
+    <h2>Login to LifeLink</h2>
+
+    <input type="email" id="email" placeholder="Enter Email">
+    <input type="password" id="password" placeholder="Enter Password">
+
+    <button onclick="loginUser()">Login</button>
+
+    <div class="error" id="errorMsg"></div>
+
+    <p>Don't have an account? <a href="register.html">Register</a></p>
+</div>
+
+<script>
+
+    // 🔥 Firebase Configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyCa-6Yj4JEklEf7Hc0qhUhFC2Qfqde8Uu0",
+        authDomain: "lifelink-organ-donation.firebaseapp.com",
+        projectId: "lifelink-organ-donation",
+        storageBucket: "lifelink-organ-donation.firebasestorage.app",
+        messagingSenderId: "839190723638",
+        appId: "1:839190723638:web:8e1ee3f2f8f14061c6ec97"
+    };
+
+    // Prevent double initialization
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    function loginUser() {
+
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value.trim();
+        const errorMsg = document.getElementById("errorMsg");
+
+        errorMsg.innerText = "";
+
+        if (!email || !password) {
+            errorMsg.innerText = "Please fill all fields!";
+            return;
+        }
+
+        auth.signInWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+
+            const user = userCredential.user;
+
+            // 🔥 CHECK IF USER CAME FROM REQUEST
+            const pendingDonorUid = localStorage.getItem("pendingDonorUid");
+
+            if (pendingDonorUid) {
+                // Go back to search page to complete request
+                window.location.href = "search.html";
+                return;
+            }
+
+            // Otherwise redirect by role
+            db.collection("users").doc(user.uid).get()
+            .then((doc) => {
+
+                if (doc.exists) {
+
+                    const role = doc.data().role;
+
+                    if (role === "admin") {
+                        window.location.href = "admin-dashboard.html";
+                    } 
+                    else if (role === "donor") {
+                        window.location.href = "donor-dashboard.html";
+                    } 
+                    else {
+                        window.location.href = "index.html";
+                    }
+
+                } else {
+                    errorMsg.innerText = "User role not found!";
+                }
+
+            });
+
+        })
+        .catch((error) => {
+            errorMsg.innerText = error.message;
+        });
+    }
+
+</script>
+
+</body>
+</html>
+
