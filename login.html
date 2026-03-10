@@ -154,21 +154,13 @@
 
                 if (doc.exists) {
 
-                    const role = doc.data().role;
+                   const role = doc.data().role;
 
-                    if (role === "admin") {
-                        window.location.href = "admin-dashboard.html";
-                    } 
-                    else if (role === "donor") {
-                        window.location.href = "index.html";
-                    } 
-                    else {
-                        window.location.href = "index.html";
-                    }
-
-                } else {
-                    errorMsg.innerText = "User role not found!";
-                }
+if (role && role.toLowerCase() === "admin") {
+    window.location.href = "admin-dashboard.html";
+} else {
+    window.location.href = "index.html";
+}
 
             });
 
@@ -182,5 +174,6 @@
 
 </body>
 </html>
+
 
 
